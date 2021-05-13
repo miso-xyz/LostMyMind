@@ -1,6 +1,10 @@
 # LostMyMind
 what a clusterfuck of a deobfuscator, currently in very early stages (MindLated Deobfuscator)
 
+# Notes:
+The application is currently in very early early stages, don't expect it to work or to produce anything really usable
+tldr: its not gonna magically work, dont use it just to reverse anything protected with MindLated since it cant do shit
+
 # Protection Supported:
 <pre>
 - Simple & Equation-Based Math Calculations (can be improved a lot more)
