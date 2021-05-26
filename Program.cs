@@ -16,11 +16,6 @@ namespace LostMyMind
         private static Assembly app;
         private static ModuleDefMD asm;
 
-        static void GetStrings()
-        {
-            
-        }
-
         static void removeMindLatedStrings(MethodDef methods)
         {
             for (int x = 0; x < methods.Body.Instructions.Count; x++)
@@ -71,18 +66,21 @@ namespace LostMyMind
                     {
                         case "boolean":
                             methods.Body.Instructions.Insert(x, new Instruction(OpCodes.Ldc_I4, sizeof(bool)));
-                            methods.Body.Instructions.RemoveAt(x+1);
                             Console.WriteLine("fixed SizeOf! (bool)");
                             break;
                         case "single":
                             methods.Body.Instructions.Insert(x, new Instruction(OpCodes.Ldc_I4, sizeof(Single)));
-                            methods.Body.Instructions.RemoveAt(x+1);
                             Console.WriteLine("fixed SizeOf! (Single)");
+                            break;
+                        case "double":
+                            methods.Body.Instructions.Insert(x, new Instruction(OpCodes.Ldc_I4, sizeof(Double)));
+                            Console.WriteLine("fixed SizeOf! (Double)");
                             break;
                         default:
                             Console.WriteLine("unknown SizeOf! (" + ((TypeRef)inst.Operand).Name.ToLower() + ")");
                             break;
                     }
+                    methods.Body.Instructions.RemoveAt(x + 1);
                 }
             }
         }
@@ -95,7 +93,8 @@ namespace LostMyMind
                 if (inst.OpCode.Equals(OpCodes.Ldftn) && methods.Body.Instructions[x+1].OpCode.Equals(OpCodes.Calli))
                 {
                     inst.OpCode = OpCodes.Call;
-                    methods.Body.Instructions[x + 1].OpCode = OpCodes.Nop;
+                    methods.Body.Instructions.RemoveAt(x+1);
+                    //methods.Body.Instructions[x + 1];
                 }
             }
         }
@@ -105,90 +104,128 @@ namespace LostMyMind
         {
             for (int x = 0; x < methods.Body.Instructions.Count(); x++)
             {
+                if (x - 2 < 0) { continue; }
                 Instruction inst = methods.Body.Instructions[x];
-                try
+                switch (inst.OpCode.Code)
                 {
-                    Instruction newInst = null;
-                    switch (inst.OpCode.ToString())
-                    {
-                        case "add":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) + Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "sub":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) - Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "mul":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) * Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "div":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) / Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "call":
-                            if (inst.Operand.ToString().Contains("GetHINSTANCE")) { return false; }
-                            continue;
-                        default:
-                            continue;
-                    }
-                    return true;
-                }
-                catch (Exception)
-                {
+                    case Code.Add:
+                    case Code.Sub:
+                    case Code.Mul:
+                    case Code.Div:
+                    case Code.Xor:
+                    case Code.Rem:
+                        if (IsRuntimeCalculation( new Instruction[] {methods.Body.Instructions[x-2], methods.Body.Instructions[x-1]}, calcTypeFromOpcode(inst.OpCode.Code))[1] != double.NaN) { return true; }
+                        break;
+                    default:
+                        continue;
                 }
             }
             return false;
+        }
+
+        static CalculationType calcTypeFromOpcode(Code opcode)
+        {
+            switch (opcode)
+            {
+                case Code.Add:
+                    return CalculationType.Addition;
+                case Code.Sub:
+                    return CalculationType.Substraction;
+                case Code.Mul:
+                    return CalculationType.Multiplication;
+                case Code.Div:
+                    return CalculationType.Division;
+                case Code.Rem:
+                    return CalculationType.Mod;
+                case Code.Xor:
+                    return CalculationType.XOR;
+            }
+            return CalculationType.Unknown;
         }
 
         static void ComputeBasicMath(MethodDef methods)
         {
             for (int x = 0; x < methods.Body.Instructions.Count(); x++)
             {
+                if (x - 2 < 0 && x + 1 > methods.Body.Instructions.Count) { continue; }
                 Instruction inst = methods.Body.Instructions[x];
                 try
                 {
-                    Instruction newInst = null;
                     Console.Title = methods.DeclaringType.Name + "::" + methods.Name +" | " + x + " - " + methods.Body.Instructions.Count();
-                    switch (inst.OpCode.ToString())
-                    {
-                        case "add":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) + Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "sub":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) - Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "mul":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) * Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "div":
-                            newInst = new Instruction(OpCodes.Ldc_R8, Convert.ToDouble(methods.Body.Instructions[x - 2].Operand.ToString()) / Convert.ToDouble(methods.Body.Instructions[x - 1].Operand.ToString()));
-                            break;
-                        case "call":
-                            if (inst.Operand.ToString().Contains("GetHINSTANCE")) { return; }
-                            continue;
-                        default:
-                            continue;
-                    }
-                    if (x + 1 < methods.Body.Instructions.Count())
-                    {
-                        if (methods.Body.Instructions[x + 1].OpCode.Equals(OpCodes.Call))
-                        {
-                            if (((MemberRef)methods.Body.Instructions[x + 1].Operand).Name == "ToInt32")
-                            {
-                                newInst = new Instruction(OpCodes.Ldc_I4, Convert.ToInt32(newInst.Operand.ToString()));
-                                methods.Body.Instructions.RemoveAt(x + 1);
-                            }
-                        }
-                    }
-                    methods.Body.Instructions[x - 2] = newInst;
-                    methods.Body.Instructions.RemoveAt(x - 1);
-                    methods.Body.Instructions.RemoveAt(x - 1);
-                    x -= 2;
+                    double calcResult;
+                    List<Instruction> calcs = new List<Instruction>();
+                    calcs.Add(methods.Body.Instructions[x - 2]);
+                    calcs.Add(methods.Body.Instructions[x - 1]);
+                    if (inst.OpCode.Equals(OpCodes.Call)) { if (inst.Operand.ToString().Contains("GetHINSTANCE")) { return; } }
+                    calcResult = IsRuntimeCalculation(calcs.ToArray(), calcTypeFromOpcode(inst.OpCode.Code))[1];
+                    if (calcResult != double.NaN) { inst = OpCodes.Ldc_R8.ToInstruction(Convert.ToDouble(calcResult)); } else { continue; }
+                    methods.Body.Instructions.RemoveAt(x - 2); methods.Body.Instructions.RemoveAt(x - 2);
                     Console.WriteLine("fixed basic math!");
+                    
                 }
                 catch (Exception)
                 {
                 }
             }
         }
+
+        public enum CalculationType
+        {
+            Addition,
+            Substraction,
+            Multiplication,
+            Division,
+            XOR,
+            Mod,
+            Unknown
+        }
+
+        static double[] IsRuntimeCalculation(Instruction[] insts, CalculationType calcType)
+        {
+            double[] result = {double.NaN, double.NaN};
+            switch (insts[0].OpCode.Code)
+            {
+                case Code.Ldc_I4:
+                case Code.Ldc_R8:
+                    break;
+                default:
+                    result[0] = 1;
+                    return result;
+            }
+            switch (insts[1].OpCode.Code)
+            {
+                case Code.Ldc_I4:
+                case Code.Ldc_R8:
+                    break;
+                default:
+                    result[0] = 1;
+                    return result;
+            }
+            result[0] = 0;
+            switch (calcType)
+            {
+                case CalculationType.Addition:
+                    result[1] = Convert.ToDouble(insts[0].Operand.ToString()) + Convert.ToDouble(insts[1].Operand.ToString());
+                    break;
+                case CalculationType.Substraction:
+                    result[1] = Convert.ToDouble(insts[0].Operand.ToString()) - Convert.ToDouble(insts[1].Operand.ToString());
+                    break;
+                case CalculationType.Multiplication:
+                    result[1] = Convert.ToDouble(insts[0].Operand.ToString()) * Convert.ToDouble(insts[1].Operand.ToString());
+                    break;
+                case CalculationType.Division:
+                    result[1] = Convert.ToDouble(insts[0].Operand.ToString()) / Convert.ToDouble(insts[1].Operand.ToString());
+                    break;
+                case CalculationType.XOR:
+                    result[1] = Convert.ToDouble(Convert.ToInt32(insts[0].Operand.ToString()) ^ Convert.ToInt32(insts[1].Operand.ToString()));
+                    break;
+                case CalculationType.Mod:
+                    result[1] = Convert.ToDouble(insts[0].Operand.ToString()) % Convert.ToDouble(insts[1].Operand.ToString());
+                    break;
+            }
+            return result;
+        }
+
         static void ComputeCalledEquations(MethodDef methods)
         {
             for (int x = 0; x < methods.Body.Instructions.Count(); x++)
@@ -370,18 +407,19 @@ namespace LostMyMind
                             break;
                         }
                     }
-                    //RemoveUselessNops();
+                    RemoveUselessNops();
                     removeMindLatedStrings(methods);
                     CleanCFlow(methods);
                     FixSizeOfs(methods);
                     ConvertCallis(methods);
                     ComputeBasicMath(methods);
                     ComputeCalledEquations(methods);
-                    //while (hasBasicMathCalculations(methods))
-                    //{
-                        //RemoveUselessNops();
-                        ComputeBasicMath(methods); // recalculated because called equation might have created new operations
-                    //}
+                        RemoveUselessNops();
+                        //while (hasBasicMathCalculations(methods))
+                        //{
+                            ComputeCalledEquations(methods);
+                            ComputeBasicMath(methods); // recalculated because called equation might have created new operations
+                        //}
                     if (methods.Body.HasExceptionHandlers)
                     {
                         methods.Body.ExceptionHandlers.RemoveAt(0);
